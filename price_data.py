@@ -8,7 +8,6 @@ import os
 import glob
 import logging
 import myquandl as mq
-import pandas
 
 
 logging.basicConfig(filename='./logs/{}.log'.format(datetime.date.today()),
@@ -49,7 +48,7 @@ def populate_table(file_obj):
             con.close()
 
 
-def get_latest_db():
+def latest_db_update():
     """ Returns the datetime of the last table update. """
     con = None
     try:
@@ -75,7 +74,7 @@ def get_latest_db():
 
 def get_quandl_url():
     """ Returns the URL to retrieve all data since last update. """
-    ldate = get_latest_db()
+    ldate = latest_db_update()
     if ldate:
         if ldate < datetime.date.today():
             qurl = r'https://www.quandl.com/api/v3/datatables/WIKI/' \
@@ -92,7 +91,7 @@ def get_quandl_url():
 
 
 def dl_price_data():
-    """ Download price data from quandl. """
+    """ Download price data from quandl needed to bring db up to date. """
     today = datetime.date.today()
     url = get_quandl_url()
     if url:
@@ -123,23 +122,31 @@ def dl_price_data():
                 shutil.copyfileobj(ef, csv_filename)
     return True
 
+
 def get_latest_filename():
-    """ Returns the latest dawnloaded CSV file. """
+    """ Returns the latest price history CSV file. """
     path = './data/'
     return max(glob.iglob('{}*.[Cc][Ss][Vv]'.format(path)), key=os.path.getctime)
 
-def get_df(tickers=(), columns='*'):
-    """ Returns the date of the last table update. """
+
+def get_all_tickers():
     con = None
-    if tickers:
-        sql = 'SELECT {} FROM price_data where ticker in {}'.format(columns, tickers)
-    else:
-        sql = 'SELECT {} FROM price_data'.format(columns)
-    print sql
     try:
         con = psycopg2.connect("dbname='tradingdb' user='trader' "
                                "host='localhost' password='123456'")
-        return pandas.read_sql(sql, con)
+        cur = con.cursor()
+        cur.execute("SELECT ticker FROM price_data GROUP BY ticker ORDER BY ticker")
+        rows = cur.fetchall()
+        for num, row in enumerate(rows):
+            print '{}   {}'.format(num, row)
+
+        # if rows:
+        #     # print "latest price"
+        #     # print row[0].strftime("%Y-%m-%d")
+        #     for row in rows:
+        #         print row
+        # else:
+        #     return None
     except psycopg2.OperationalError, e:
         print "Unable to connect to the database:\n" + str(e)
         return None
@@ -148,8 +155,4 @@ def get_df(tickers=(), columns='*'):
             print "closing"
             con.close()
 
-
-# df = get_df(('AAPL', 'TSLA'))
-# print df['TSLA'].head()
-
-
+get_all_tickers()
