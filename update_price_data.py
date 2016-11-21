@@ -6,4 +6,6 @@ if price_data.dl_price_data():
     print filename
     print 'inserting {} into db.'.format(filename)
     with open(filename, 'r') as f:
-        price_data.populate_table(f)
+        price_data.populate_table(file_obj=f)
+
+# price_data.get_all_tickers()

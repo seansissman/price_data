@@ -14,7 +14,7 @@ def get_df(tickers=(), columns='*'):
     try:
         con = psycopg2.connect("dbname='tradingdb' user='trader' "
                                "host='localhost' password='123456'")
-        return pd.read_sql(sql, con)
+        return pd.read_sql(sql, con, chunksize=10000)
     except psycopg2.OperationalError, e:
         print "Unable to connect to the database:\n" + str(e)
         return None
@@ -34,15 +34,17 @@ def rsi(df):
     print rsi210
 
 
-columns = 'date, ticker, adj_close, adj_volume'
-# my_df = get_df(tickers=('FB', ''), columns=columns)
-# the_df = my_df.set_index('date')
+# columns = 'date, ticker, adj_close, adj_volume'
+# my_df = get_df(tickers=('FB', 'TSLA'), columns=columns)
+# # the_df = my_df.set_index('date')
+#
+# # rsi(the_df)
+#
+# df = get_df(columns=columns)
+# print df[df['ticker'] == 'AAPL']
 
-# rsi(the_df)
-
-df = get_df(columns=columns)
-print df[df['ticker'] == 'AAPL']
-
+# df = get_df()
+# print df.head()
 # print my_df.head()
 # print my_df.tail()
 
