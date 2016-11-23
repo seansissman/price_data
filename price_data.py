@@ -21,12 +21,14 @@ import myquandl as mq
 def dbwrap(func):
     def sql_manager(*args, **kwargs):
         con = None
+        retval = None
         try:
             con = psycopg2.connect("dbname='tradingdb' user='trader' "
                                    "host='localhost' password='123456'")
             cur = con.cursor()
-            func(cur, **kwargs)
+            retval = func(cur, **kwargs)
             con.commit()
+            return retval
         except psycopg2.OperationalError, e:
             print "Unable to connect to the database:\n" + str(e)
 
@@ -133,6 +135,8 @@ def get_all_tickers(cur):
     cur.execute("SELECT ticker FROM price_data GROUP BY ticker ORDER BY ticker")
     rows = cur.fetchall()
     print rows
-    return [t[0] for t in rows]
+    tic = [t[0] for t in rows]
+    print tic
+    return tic
 
 #get_all_tickers()
