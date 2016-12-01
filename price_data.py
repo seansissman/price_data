@@ -139,4 +139,17 @@ def get_all_tickers(cur):
     print tic
     return tic
 
+@dbwrap
+def get_current_tickers(cur):
+    """ Returns list of all tickers from latest date"""
+    date = latest_db_update()
+    sql = "SELECT ticker FROM price_data WHERE date >= '{}'::DATE " \
+          "GROUP BY ticker ORDER BY ticker".format(date)
+    cur.execute(sql)
+    rows = cur.fetchall()
+    print rows
+    tic = [t[0] for t in rows]
+    print tic
+    return tic
+
 #get_all_tickers()

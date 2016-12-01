@@ -4,6 +4,7 @@ import pandas as pd
 import datetime
 import operator
 
+
 def get_df(columns='*', tickers=(), startdate='', enddate=''):
     """ Returns the date of the last table update. """
     con = None
@@ -44,9 +45,34 @@ def sma(df, period):
 
 
 def rsi(df, period=210):
-    ma = sma(df, period)
-    rsi_ratio = df['adj_close'] / ma['adj_close']
+    if len(df) >= period:
+        ma = sma(df, period)
+        return df['adj_close'] / ma['adj_close']
+    else:
+        return None
     return rsi_ratio
+
+
+def rsi_ratios():
+    sdate = datetime.date.today() - datetime.timedelta(days=366)
+    all_tickers = price_data.get_current_tickers()
+    ratios = pd.Series(None, index=all_tickers)
+    all_tickers_df = get_df(columns='date, ticker, adj_close', startdate=sdate)
+    sorted_df = all_tickers_df.set_index(['ticker', 'date']).sort_index(0)
+
+    for ticker in all_tickers:
+        df = sorted_df.loc[ticker]
+        df['sma'] = sma(df, 210)#.adj_close
+        df['rsi'] = rsi(df)
+        ratios[ticker] = df.iloc[-1].rsi
+
+    ratios = ratios[ratios.notnull()]
+    ratios.sort_values(inplace=True)
+    print ratios.head()
+    print ratios.tail(20)
+
+rsi_ratios()
+
 
 # df = get_df(columns='date, adj_close',
 #             tickers=('AAPL',''),
@@ -64,24 +90,31 @@ def rsi(df, period=210):
 
 def rsi_rank():
     sdate = datetime.date.today() - datetime.timedelta(days=366)
-    all_tickers = price_data.get_all_tickers()
-    # print all_tickers
+    all_tickers = price_data.get_current_tickers()
     rsi_ratios = {}
+    # ranks = pd.DataFrame(columns='ratio', index='ticker')
     all_tickers_df = get_df(columns='date, ticker, adj_close', startdate=sdate)
-    sorted_df = all_tickers_df.set_index('date').sort_index()
-    for ticker in all_tickers[5:9]:
-        df = sorted_df[sorted_df.ticker == ticker]
+    sorted_df = all_tickers_df.set_index(['ticker', 'date']).sort_index(0)
+
+    for ticker in all_tickers:
+        df = sorted_df.loc[ticker]
+        # print df.tail()
+        # df = sorted_df[sorted_df.ticker == ticker]
         df['sma'] = sma(df, 210).adj_close
         df['rsi'] = rsi(df)
-        print df.tail()
         rsi_ratios[ticker] = df.iloc[-1].rsi
-        print rsi_ratios
-        sorted_ratios = sorted(rsi_ratios.items(), key=operator.itemgetter(1))
-        print sorted_ratios
+    rank_df = pd.DataFrame.from_dict(rsi_ratios, orient='index').columns('ratio')
+    print rank_df.tail()
+    rank = rank_df.rank(axis=0) / len(all_tickers) * 100
+    print rank.tail()
+    #     print rsi_ratios
+    #     sorted_ratios = sorted(rsi_ratios.items(), key=operator.itemgetter(1))
+    #     print sorted_ratios
+
     # print all_tickers_df.tail()
     # print sorted_df.tail()
 
-rsi_rank()
+# rsi_rank()
     # for ticker in all_tickers[]:#5:9]:
     #     print ticker
     #     df = get_df(tickers=(ticker, ''), columns='date, adj_close',
