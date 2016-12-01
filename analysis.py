@@ -52,24 +52,44 @@ def rsi(df, period=210):
         return None
     return rsi_ratio
 
+# OLDVERSION
+# def rsi_ratios():
+#     sdate = datetime.date.today() - datetime.timedelta(days=700)
+#     all_tickers = price_data.get_current_tickers()
+#     ratios = pd.Series(None, index=all_tickers)
+#     all_tickers_df = get_df(columns='date, ticker, adj_close', startdate=sdate)
+#     sorted_df = all_tickers_df.set_index(['ticker', 'date']).sort_index(0)
+#
+#     for ticker in all_tickers:
+#         df = sorted_df.loc[ticker]
+#         df['sma'] = sma(df, 427)#.adj_close
+#         df['rsi'] = rsi(df, period=427)
+#         ratios[ticker] = df.iloc[-1].rsi
+#
+#     ratios = ratios[ratios.notnull()]
+#     ratios.sort_values(inplace=True)
+#
+#     print ratios[(ratios >= 1.47) & (ratios < 1.48)]
 
 def rsi_ratios():
-    sdate = datetime.date.today() - datetime.timedelta(days=366)
+    sdate = datetime.date.today() - datetime.timedelta(days=700)
+    yesterday = datetime.date.today() - datetime.timedelta(days=1)
     all_tickers = price_data.get_current_tickers()
-    ratios = pd.Series(None, index=all_tickers)
+    #     ratios = pd.Series(None, index=all_tickers)
+    ratios = pd.DataFrame(None, columns=['yesterday', 'today'], index=all_tickers)
     all_tickers_df = get_df(columns='date, ticker, adj_close', startdate=sdate)
     sorted_df = all_tickers_df.set_index(['ticker', 'date']).sort_index(0)
 
     for ticker in all_tickers:
         df = sorted_df.loc[ticker]
-        df['sma'] = sma(df, 210)#.adj_close
-        df['rsi'] = rsi(df)
-        ratios[ticker] = df.iloc[-1].rsi
+        df['sma'] = sma(df, 427)#.adj_close
+        df['rsi'] = rsi(df, period=427)
+        ratios.loc[ticker] = [df.iloc[-1].rsi, df.iloc[-2].rsi]
 
-    ratios = ratios[ratios.notnull()]
-    ratios.sort_values(inplace=True)
-    print ratios.head()
-    print ratios.tail(20)
+        ratios = ratios[ratios.notnull()]
+
+    print ratios[(ratios.today >= 1.47) & (ratios.today < 1.48) &
+                 (ratios.yesterday < ratios.today)]
 
 rsi_ratios()
 
