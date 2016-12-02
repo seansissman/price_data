@@ -2,7 +2,14 @@ import price_data
 import psycopg2
 import pandas as pd
 import datetime
+import logging as log
 import operator
+
+
+log.basicConfig(filename='./logs/{}.price_data.log'.format(datetime.date.today()),
+                format='%(asctime)s,%(msecs)03d...%(levelname)s:  %(message)s',
+                datefmt='%H:%M:%S',
+                level='DEBUG')
 
 
 def get_df(columns='*', tickers=(), startdate='', enddate=''):
@@ -26,7 +33,7 @@ def get_df(columns='*', tickers=(), startdate='', enddate=''):
             qfilter = ' WHERE {}'.format(f)
 
     sql = 'SELECT {} FROM price_data{}'.format(columns, qfilter)
-    print sql
+    # print sql
     try:
         con = psycopg2.connect("dbname='tradingdb' user='trader' "
                                "host='localhost' password='123456'")
@@ -36,12 +43,13 @@ def get_df(columns='*', tickers=(), startdate='', enddate=''):
         return None
     finally:
         if con:
-            print "closing"
+            # print "closing"
             con.close()
 
 
 def sma(df, period):
-    return pd.rolling_mean(df, window=period)
+    # return pd.rolling_mean(df, window=period)
+    return df.rolling(window=period, center=False).mean()
 
 
 def rsi(df, period=210):
@@ -52,61 +60,36 @@ def rsi(df, period=210):
         return None
     return rsi_ratio
 
-# OLDVERSION
-# def rsi_ratios():
-#     sdate = datetime.date.today() - datetime.timedelta(days=700)
-#     all_tickers = price_data.get_current_tickers()
-#     ratios = pd.Series(None, index=all_tickers)
-#     all_tickers_df = get_df(columns='date, ticker, adj_close', startdate=sdate)
-#     sorted_df = all_tickers_df.set_index(['ticker', 'date']).sort_index(0)
-#
-#     for ticker in all_tickers:
-#         df = sorted_df.loc[ticker]
-#         df['sma'] = sma(df, 427)#.adj_close
-#         df['rsi'] = rsi(df, period=427)
-#         ratios[ticker] = df.iloc[-1].rsi
-#
-#     ratios = ratios[ratios.notnull()]
-#     ratios.sort_values(inplace=True)
-#
-#     print ratios[(ratios >= 1.47) & (ratios < 1.48)]
 
-def rsi_ratios():
-    sdate = datetime.date.today() - datetime.timedelta(days=700)
-    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+def rsi_ratios(period=427, buy_ratio=1.47, sell_ratio=1.12):
+    """ Calculates and filters RSI ratios. """
+    log.info('Calculating RSI ratios with the following criteria:\n'
+             '\tPeriod = {}\n'
+             '\tBuy Ratio = {}'.format(period, buy_ratio))
+    sdate = datetime.date.today() - datetime.timedelta(days=period*2)
     all_tickers = price_data.get_current_tickers()
-    #     ratios = pd.Series(None, index=all_tickers)
     ratios = pd.DataFrame(None, columns=['yesterday', 'today'], index=all_tickers)
     all_tickers_df = get_df(columns='date, ticker, adj_close', startdate=sdate)
     sorted_df = all_tickers_df.set_index(['ticker', 'date']).sort_index(0)
 
     for ticker in all_tickers:
         df = sorted_df.loc[ticker]
-        df['sma'] = sma(df, 427)#.adj_close
-        df['rsi'] = rsi(df, period=427)
-        ratios.loc[ticker] = [df.iloc[-1].rsi, df.iloc[-2].rsi]
+        df['sma'] = sma(df, period)#.adj_close
+        df['rsi'] = rsi(df, period=period)
+        ratios.loc[ticker] = [df.iloc[-2].rsi, df.iloc[-1].rsi]
 
         ratios = ratios[ratios.notnull()]
+        # ratios.sort_values(by='today', inplace=True)
 
-    print ratios[(ratios.today >= 1.47) & (ratios.today < 1.48) &
+    to_buy = ratios[(ratios.today >= buy_ratio) & (ratios.today < buy_ratio + 0.01) &
                  (ratios.yesterday < ratios.today)]
+    log.info('Tickers within buy range:\n{}'.format(to_buy))
+    print to_buy
 
-rsi_ratios()
+rsi_ratios(period=427, buy_ratio=1.47)
 
 
-# df = get_df(columns='date, adj_close',
-#             tickers=('AAPL',''),
-#             startdate='2016-11-01',
-#             enddate=datetime.date.today())
-# print df.head()
-# print df.tail()
-#
-# today = datetime.date.today()
-# sdate = today - datetime.timedelta(days=366)
-# all_tickers = price_data.get_all_tickers()
-# df = get_df(columns='date, ticker, adj_close',
-#             startdate=sdate)
-# print df.tail()
+
 
 def rsi_rank():
     sdate = datetime.date.today() - datetime.timedelta(days=366)
@@ -133,35 +116,4 @@ def rsi_rank():
 
     # print all_tickers_df.tail()
     # print sorted_df.tail()
-
-# rsi_rank()
-    # for ticker in all_tickers[]:#5:9]:
-    #     print ticker
-    #     df = get_df(tickers=(ticker, ''), columns='date, adj_close',
-    #                 startdate=sdate)
-    #     df['sma'] = sma(df, 210).adj_close.tail()
-    #     print 'rsi-----------------'
-    #     df['rsi'] = rsi(df)
-    #     print df.tail()
-
-    # print '444444444444444444'
-    # print sma(df, 210).tail()
-
-# columns = 'date, ticker, adj_close'
-# my_df = get_df(tickers=('TSLA',''), columns=columns)
-# my_df['rsi_ratio'] = rsi(my_df)
-# print my_df.tail(30)
-
-
-# # the_df = my_df.set_index('date')
-#
-# # rsi(the_df)
-#
-# df = get_df(columns=columns)
-# print df[df['ticker'] == 'AAPL']
-
-# df = get_df()
-# print df.head()
-# print my_df.head()
-# print my_df.tail()
 
