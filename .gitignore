@@ -2,6 +2,7 @@ settings.py
 test.py
 
 myquandl.*
+private.*
 
 
 *.pyc

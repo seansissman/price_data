@@ -1,21 +1,26 @@
-import price_data
-import datetime
-import logging as log
+from price_data import log, \
+                       dl_price_data, \
+                       get_latest_filename, \
+                       get_latest_filesize, \
+                       populate_table
+from sys import exit
 
-log.basicConfig(filename='./logs/{}.price_data.log'.format(datetime.date.today()),
-                format='%(asctime)s,%(msecs)03d...%(levelname)s:  %(message)s',
-                datefmt='%H:%M:%S',
-                level='DEBUG')
 
 log.info('Executing update_price_data.py')
 
-if price_data.dl_price_data():
+if dl_price_data():
     try:
-        filename = price_data.get_latest_filename()
-        with open(filename, 'r') as f:
-            price_data.populate_table(file_obj=f)
+        filename = get_latest_filename()
+        if get_latest_filesize() > 110:
+            with open(filename, 'r') as f:
+                populate_table(file_obj=f)
+        else:
+            log.warning('Latest CSV file contains no data.  Aborting update.')
+            exit(1)
     except:
         log.exception('Exception in updating price data:')
         raise
     else:
         log.info('Updating of price data complete.')
+# else:
+#     log.info('No update needed')

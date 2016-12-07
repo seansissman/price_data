@@ -7,7 +7,7 @@ import zipfile
 import os
 import glob
 import logging as log
-import myquandl as mq
+import private
 
 
 log.basicConfig(filename='./logs/{}.price_data.log'.format(datetime.date.today()),
@@ -79,14 +79,15 @@ def get_quandl_url():
         if ldate < datetime.date.today():
             qurl = r'https://www.quandl.com/api/v3/datatables/WIKI/' \
                    r'PRICES.csv?date.gt={}&api_key={}'.format(ldate.strftime("%Y-%m-%d"),
-                                                              mq.quandl_api_key())
+                                                              private.quandl_api_key())
         else:
-            print "database is up to date"
+            log.info('Database is up to date.')
             qurl = None
     else:
         qurl = r'https://www.quandl.com/api/v3/databases/WIKI/' \
-               r'data?api_key={}'.format(mq.quandl_api_key())
-    log.info('get_quandl_url() determined the proper URL is:\n\t{}'.format(qurl))
+               r'data?api_key={}'.format(private.quandl_api_key())
+    if qurl:
+        log.info('get_quandl_url() determined the proper URL is:\n\t{}'.format(qurl))
     return qurl
 
 
@@ -109,14 +110,14 @@ def dl_price_data():
     try:
         today = datetime.date.today()
         url = get_quandl_url()
-        log.info('Attempting to download price data from:\n\t{}'.format(url))
         if url:
+            log.info('Attempting to download price data from:\n\t{}'.format(url))
             if 'databases' in url:
                 ext = 'zip'
             else:
                 ext = 'csv'
         else:
-            log.error('Bad URL')
+            log.info('No Update necessary.')
             return False
 
         filename = '/home/sean/projects/price_env/price/data/' \
@@ -142,6 +143,11 @@ def get_latest_filename():
     latest_file = max(glob.iglob('{}*.[Cc][Ss][Vv]'.format(path)), key=os.path.getctime)
     log.info('Checking which is the latest price data file:\n\t{}'.format(latest_file))
     return latest_file
+
+
+def get_latest_filesize():
+    """ Returns the size of the latest price history CSV file. """
+    return os.path.getsize(get_latest_filename())
 
 
 @dbwrap

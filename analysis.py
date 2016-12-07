@@ -1,22 +1,20 @@
-import price_data
+from price_data import get_current_tickers
 import psycopg2
 import pandas as pd
 import datetime
-import logging as log
+import logging
 import operator
 
 
-log.basicConfig(filename='./logs/{}.price_data.log'.format(datetime.date.today()),
-                format='%(asctime)s,%(msecs)03d...%(levelname)s:  %(message)s',
-                datefmt='%H:%M:%S',
-                level='DEBUG')
+alog = logging.getLogger('analysis_logger')
+aformatter = logging.Formatter('%(asctime)s,%(msecs)03d...%(levelname)s:  %(message)s')
+ahandler = logging.FileHandler('./logs/{}.analysis.log'.format(datetime.date.today()))
+ahandler.setFormatter(aformatter)
+alog.addHandler(ahandler)
 
 
-def get_df(columns='*', tickers=(), startdate='', enddate=''):
-    """ Returns the date of the last table update. """
-    con = None
+def sql_filters(columns, tickers, startdate, enddate):
     qfilter = ''
-
     if tickers:
         qfilter = ' WHERE ticker in {}'.format(tickers)
     if startdate:
@@ -31,9 +29,17 @@ def get_df(columns='*', tickers=(), startdate='', enddate=''):
             qfilter = qfilter + ' AND {}'.format(f)
         else:
             qfilter = ' WHERE {}'.format(f)
+    return 'SELECT {} FROM price_data{}'.format(columns, qfilter)
 
-    sql = 'SELECT {} FROM price_data{}'.format(columns, qfilter)
-    # print sql
+
+def get_df(columns='*', tickers=(), startdate='', enddate=''):
+    """ Returns the date of the last table update. """
+    con = None
+    if columns != '*' or tickers or startdate or enddate:
+        sql = sql_filters(columns, tickers, startdate, enddate)
+    else:
+        sql = 'SELECT * FROM price_data'
+
     try:
         con = psycopg2.connect("dbname='tradingdb' user='trader' "
                                "host='localhost' password='123456'")
@@ -43,11 +49,11 @@ def get_df(columns='*', tickers=(), startdate='', enddate=''):
         return None
     finally:
         if con:
-            # print "closing"
             con.close()
 
 
 def sma(df, period):
+    """ Returns simple moving average"""
     # return pd.rolling_mean(df, window=period)
     return df.rolling(window=period, center=False).mean()
 
@@ -63,11 +69,11 @@ def rsi(df, period=210):
 
 def rsi_ratios(period=427, buy_ratio=1.47, sell_ratio=1.12):
     """ Calculates and filters RSI ratios. """
-    log.info('Calculating RSI ratios with the following criteria:\n'
+    alog.info('Calculating RSI ratios with the following criteria:\n'
              '\tPeriod = {}\n'
              '\tBuy Ratio = {}'.format(period, buy_ratio))
     sdate = datetime.date.today() - datetime.timedelta(days=period*2)
-    all_tickers = price_data.get_current_tickers()
+    all_tickers = get_current_tickers()
     ratios = pd.DataFrame(None, columns=['yesterday', 'today'], index=all_tickers)
     all_tickers_df = get_df(columns='date, ticker, adj_close', startdate=sdate)
     sorted_df = all_tickers_df.set_index(['ticker', 'date']).sort_index(0)
@@ -76,24 +82,24 @@ def rsi_ratios(period=427, buy_ratio=1.47, sell_ratio=1.12):
         df = sorted_df.loc[ticker]
         df['sma'] = sma(df, period)#.adj_close
         df['rsi'] = rsi(df, period=period)
-        ratios.loc[ticker] = [df.iloc[-2].rsi, df.iloc[-1].rsi]
+        if len(df) > 1:
+            ratios.loc[ticker] = [df.iloc[-2].rsi, df.iloc[-1].rsi]
 
         ratios = ratios[ratios.notnull()]
-        # ratios.sort_values(by='today', inplace=True)
 
     to_buy = ratios[(ratios.today >= buy_ratio) & (ratios.today < buy_ratio + 0.01) &
-                 (ratios.yesterday < ratios.today)]
-    log.info('Tickers within buy range:\n{}'.format(to_buy))
+                    (ratios.yesterday < ratios.today)]
+    alog.info('RSI calculations complete.  Resulting '
+              'tickers within buy range:\n{}'.format(to_buy))
     print to_buy
 
 rsi_ratios(period=427, buy_ratio=1.47)
 
 
 
-
 def rsi_rank():
     sdate = datetime.date.today() - datetime.timedelta(days=366)
-    all_tickers = price_data.get_current_tickers()
+    all_tickers = get_current_tickers()
     rsi_ratios = {}
     # ranks = pd.DataFrame(columns='ratio', index='ticker')
     all_tickers_df = get_df(columns='date, ticker, adj_close', startdate=sdate)
