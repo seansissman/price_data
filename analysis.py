@@ -3,7 +3,7 @@ import psycopg2
 import pandas as pd
 import datetime
 import logging
-import operator
+import emailer
 
 
 alog = logging.getLogger('analysis_logger')
@@ -11,7 +11,9 @@ aformatter = logging.Formatter('%(asctime)s,%(msecs)03d...%(levelname)s:  %(mess
 ahandler = logging.FileHandler('./logs/{}.analysis.log'.format(datetime.date.today()))
 ahandler.setFormatter(aformatter)
 alog.addHandler(ahandler)
+alog.setLevel(logging.DEBUG)
 
+aemail = emailer.Emailer(body='Price Data Analysis for {}'.format(datetime.date.today()))
 
 def sql_filters(columns, tickers, startdate, enddate):
     qfilter = ''
@@ -89,14 +91,23 @@ def rsi_ratios(period=427, buy_ratio=1.47, sell_ratio=1.12):
 
     to_buy = ratios[(ratios.today >= buy_ratio) & (ratios.today < buy_ratio + 0.01) &
                     (ratios.yesterday < ratios.today)]
+    # Attempt to format the dataframe so it looks nice in email - didn't work...
+    # to_buy = buy_ratios.to_string(justify='left', col_space=8, index_spaces)
+
     alog.info('RSI calculations complete.  Resulting '
               'tickers within buy range:\n{}'.format(to_buy))
     print to_buy
+    aemail.append_body('RSI Analysis with the following parameters:\n'
+                       '\tLookback Period:\t{}\n'
+                       '\tBuy Ratio:\t{}\n'
+                       '\tTickers that rose into the buy ratio:\n{}'.format(period,
+                                                                              buy_ratio,
+                                                                              to_buy))
 
 rsi_ratios(period=427, buy_ratio=1.47)
+aemail.send_email()
 
-
-
+#  INCOMPLETE
 def rsi_rank():
     sdate = datetime.date.today() - datetime.timedelta(days=366)
     all_tickers = get_current_tickers()

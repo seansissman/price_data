@@ -1,4 +1,4 @@
-from price_data import log, \
+from price_data import pdlog, \
                        dl_price_data, \
                        get_latest_filename, \
                        get_latest_filesize, \
@@ -6,7 +6,7 @@ from price_data import log, \
 from sys import exit
 
 
-log.info('Executing update_price_data.py')
+pdlog.info('Executing update_price_data.py')
 
 if dl_price_data():
     try:
@@ -15,12 +15,10 @@ if dl_price_data():
             with open(filename, 'r') as f:
                 populate_table(file_obj=f)
         else:
-            log.warning('Latest CSV file contains no data.  Aborting update.')
+            pdlog.warning('Latest CSV file contains no data.  Aborting update.')
             exit(1)
     except:
-        log.exception('Exception in updating price data:')
+        pdlog.exception('Exception in updating price data:')
         raise
     else:
-        log.info('Updating of price data complete.')
-# else:
-#     log.info('No update needed')
+        pdlog.info('Updating of price data complete.')
